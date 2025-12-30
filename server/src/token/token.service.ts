@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import * as jwt from 'jsonwebtoken';
 import DecodedJwtPayload from "src/common/interface/decoded-jwt-payload.interface";
 import { DatabaseService } from "src/database/database.service";
@@ -10,7 +11,8 @@ const ACCESS_TOKEN_EXPIRATION = '1h';
 export class TokenService {
 
      constructor(
-        private readonly db: DatabaseService
+        private readonly db: DatabaseService,
+        private configService: ConfigService
       ) {}
 
     async createTokens(data: Record<string, any>): Promise<{accessToken: string, refreshToken: string}> {
@@ -30,11 +32,11 @@ export class TokenService {
                 emailIsVerified: data.email_is_verified,
                 metadata: data.metadata
             },
-            process.env.JWT_SECRET,
+            this.configService.get<string>('JWT_SECRET'),
             {expiresIn: REFRESH_TOKEN_EXPIRATION }
         )
 
-        await this.saveRefreshToken(data.userId, refreshToken);
+        await this.saveRefreshToken(data.user_id, refreshToken);
 
         return refreshToken;
     }
@@ -48,7 +50,7 @@ export class TokenService {
                 emailIsVerified: data.email_is_verified,
                 metadata: data.metadata
             },
-            process.env.JWT_SECRET,
+            this.configService.get<string>('JWT_SECRET'),
             { expiresIn: ACCESS_TOKEN_EXPIRATION } 
         )
 

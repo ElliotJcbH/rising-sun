@@ -19,13 +19,14 @@ export class AuthService {
     const hash = hashPassword(formData.password);
 
     const query = 'INSERT INTO users(username, email, password) VALUES($1, $2, $3) RETURNING *';
-    const user = await this.db.query(query, [formData.username, formData.email, hash])[0];
+    const result = await this.db.query(query, [formData.username, formData.email, hash]);
     
+    const user = result.rows[0];
     if(!user) {
       throw new InternalServerErrorException('Failed to create new user');
     }
 
-    return this.tokenService.createTokens(user);
+    return this.tokenService.createTokens(user );
 
   }
 
@@ -36,8 +37,9 @@ export class AuthService {
       }
 
       const query = 'SELECT * FROM users WHERE email = $1';
-      const user = await this.db.query(query, [formData.email])[0];
+      const result = await this.db.query(query, [formData.email]);
 
+      const user = result.rows[0];
       if(!user.username) {
         throw new NotFoundException('User does not exist');
       }
@@ -46,7 +48,7 @@ export class AuthService {
         throw new UnauthorizedException('Invalid credentials');
       }
 
-      return this.tokenService.createTokens(user);
+      return this.tokenService.createTokens(result);
 
   }
 
