@@ -12,33 +12,43 @@ export class AuthController {
     ) {}
 
     @Post('create')
-    createAccount(@Body() formData: CreateUserForm) {
-        this.authService.createAccount(formData);
+    async createAccount(@Body() formData: CreateUserForm, @Res({passthrough: true}) res: Response) {
+        
+        const { refreshToken, accessToken } = await this.authService.createAccount(formData);
+
+        res.json({
+            refreshToken,
+            accessToken
+        })
     }
 
     @Post('signin')
-    async verifySignIn(@Body() formData: SignInUserForm, @Req() req: Request, @Res({passthrough: true}) res: Response) {
-        
+    async verifySignIn(@Body() formData: SignInUserForm, @Res({passthrough: true}) res: Response) {
+
         const { refreshToken, accessToken } = await this.authService.verifySignIn(formData);
 
         if(!refreshToken || !accessToken) {
             throw new UnauthorizedException('Invalid Tokens'); // probably not the best?
         }
 
-        res.cookie('accessToken', accessToken, {
-            httpOnly: true,
-            // secure: true, unset or set to false for dev
-            // sameSite: 'strict'
-            maxAge: 60 * 60 * 1000
+        res.json({
+            refreshToken,
+            accessToken
         })
-
-        res.cookie('refreshToken', refreshToken, {
-            httpOnly: true,
-            // secure: true, unset or set to false for dev
-            // sameSite: 'strict'
-            maxAge: 30 * 24 * 60 * 60 * 1000
-        })
-        
     }
 
 }
+
+// res.cookie('accessToken', accessToken, {
+//     httpOnly: true,
+//     // secure: true, unset or set to false for dev
+//     // sameSite: 'strict'
+//     maxAge: 60 * 60 * 1000
+// })
+
+// res.cookie('refreshToken', refreshToken, {
+//     httpOnly: true,
+//     // secure: true, unset or set to false for dev
+//     // sameSite: 'strict'
+//     maxAge: 30 * 24 * 60 * 60 * 1000
+// })

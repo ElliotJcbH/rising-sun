@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import * as jwt from 'jsonwebtoken';
 import DecodedJwtPayload from "src/common/interface/decoded-jwt-payload.interface";
+import { DatabaseService } from "src/database/database.service";
 
 const REFRESH_TOKEN_EXPIRATION = '30d';
 const ACCESS_TOKEN_EXPIRATION = '1h';
@@ -8,17 +9,27 @@ const ACCESS_TOKEN_EXPIRATION = '1h';
 @Injectable()
 export class TokenService {
 
-    async createTokens(data: Record<string, any>) {
+     constructor(
+        private readonly db: DatabaseService
+      ) {}
 
-        const refreshToken = this.createRefreshToken(data);
-        const accessToken = this.createAccessToken(data);
+    async createTokens(data: Record<string, any>): Promise<{accessToken: string, refreshToken: string}> {
+
+        const refreshToken = await this.createRefreshToken(data);
+        const accessToken = await this.createAccessToken(data);
     
         return { accessToken, refreshToken };
     }
 
     async createRefreshToken(data: Record<string, any>) {
         const refreshToken = jwt.sign(
-            data,
+            {
+                userId: data.user_id,
+                email: data.email,
+                username: data.username,
+                emailIsVerified: data.email_is_verified,
+                metadata: data.metadata
+            },
             process.env.JWT_SECRET,
             {expiresIn: REFRESH_TOKEN_EXPIRATION }
         )
@@ -30,7 +41,13 @@ export class TokenService {
     
     async createAccessToken(data: Record<string, any>) {
         const accessToken = jwt.sign(
-            data,
+            {
+                userId: data.user_id,
+                email: data.email,
+                username: data.username,
+                emailIsVerified: data.email_is_verified,
+                metadata: data.metadata
+            },
             process.env.JWT_SECRET,
             { expiresIn: ACCESS_TOKEN_EXPIRATION } 
         )
@@ -51,7 +68,12 @@ export class TokenService {
     }
 
     async saveRefreshToken(userId: string, refreshToken: string): Promise<boolean> {
-        return true;
+        
+        const query = 'INSERT INTO auth.refresh_tokens(token_id, user_id) VALUES($1, $2) RETURNING token_id';
+
+        if(await this.db.query(query, [refreshToken, userId])[0]) return true;
+
+        return false;
     }
 
 }
