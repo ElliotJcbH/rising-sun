@@ -26,7 +26,7 @@ export class AuthService {
       throw new InternalServerErrorException('Failed to create new user');
     }
 
-    return this.tokenService.createTokens(user );
+    return this.tokenService.createTokens(user);
 
   }
 

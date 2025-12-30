@@ -26,10 +26,10 @@ export class TokenService {
     async createRefreshToken(data: Record<string, any>) {
         const refreshToken = jwt.sign(
             {
-                userId: data.user_id,
+                user_id: data.user_id,
                 email: data.email,
                 username: data.username,
-                emailIsVerified: data.email_is_verified,
+                email_is_verified: data.email_is_verified,
                 metadata: data.metadata
             },
             this.configService.get<string>('JWT_SECRET'),
@@ -44,10 +44,10 @@ export class TokenService {
     async createAccessToken(data: Record<string, any>) {
         const accessToken = jwt.sign(
             {
-                userId: data.user_id,
+                user_id: data.user_id,
                 email: data.email,
                 username: data.username,
-                emailIsVerified: data.email_is_verified,
+                email_is_verified: data.email_is_verified,
                 metadata: data.metadata
             },
             this.configService.get<string>('JWT_SECRET'),
@@ -57,11 +57,42 @@ export class TokenService {
         return accessToken;
     }
 
-    async verifyRefreshToken(refreshToken: string) {
+    async verifyToken(accessToken: string, userId: string) {
 
+        const validAccessPayload = await this.verifyAccessToken(accessToken, userId);
+        if(validAccessPayload) return validAccessPayload;
+        
+        const validRefreshPayload = await this.verifyRefreshToken(userId);
+        if(validRefreshPayload) {
+            this.createAccessToken(validRefreshPayload);
+        }
+
+        return null; // user has to re-do authorization steps
     }
 
-    async verifyAccessToken(accessToken: string) {
+    async verifyRefreshToken(userId: string) {
+
+        const query = 'SELECT * FORM auth.refresh_tokens WHERE user_id = $1';
+        const result = await this.db.query(query, [userId]);
+        
+        const refreshToken = result.rows[0].token_id;
+        const payload = jwt.verify(
+            refreshToken,
+            this.configService.get<string>('JWT_SECRET'),
+        )
+
+        if(payload) return payload;
+       
+    }
+
+    async verifyAccessToken(accessToken: string, userId: string) {
+
+        const payload = jwt.verify(
+            accessToken, 
+            this.configService.get<string>('JWT_SECRET'),
+        );    
+
+        if(payload) return payload;
 
     }
 
