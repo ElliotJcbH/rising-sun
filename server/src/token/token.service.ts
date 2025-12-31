@@ -15,12 +15,16 @@ export class TokenService {
         private configService: ConfigService
       ) {}
 
-    async createTokens(data: Record<string, any>): Promise<{accessToken: string, refreshToken: string}> {
+    async createTokens(data: Record<string, any>): Promise<{accessToken: string, refreshToken: string, user_data: Record<string, any>}> {
 
         const refreshToken = await this.createRefreshToken(data);
         const accessToken = await this.createAccessToken(data);
     
-        return { accessToken, refreshToken };
+        return { 
+            accessToken, 
+            refreshToken,
+            user_data: data, 
+        };
     }
 
     async createRefreshToken(data: Record<string, any>) {
@@ -64,7 +68,7 @@ export class TokenService {
         
         const validRefreshPayload = await this.verifyRefreshToken(userId);
         if(validRefreshPayload) {
-            this.createAccessToken(validRefreshPayload);
+            return await this.createAccessToken(validRefreshPayload);
         }
 
         return null; // user has to re-do authorization steps

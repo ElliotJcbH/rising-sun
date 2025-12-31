@@ -1,0 +1,13 @@
+
+form {
+    display: flex;
+    flex-direction: column;
+    max-width: 500px;
+    margin-inline: auto;
+    row-gap: 1rem;
+}
+
+label {
+    display: flex;
+    flex-direction: column;
+}
