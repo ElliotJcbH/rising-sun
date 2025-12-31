@@ -3,6 +3,8 @@ import '@/styles/Index.css';
 import { useNavigate } from "@tanstack/react-router";
 
 const Index = () => {
+    
+    const navigate = useNavigate();
 
     const createAccount = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -35,6 +37,10 @@ const Index = () => {
 
         const body = await res.json();
         localStorage.setItem('authToken', JSON.stringify(body));
+
+        setTimeout(() => {
+            navigate({ to: '/home' });
+        }, 500);
         
         // if(!body.accessToken || !body.refreshToken) {
         //     throw new Error('Missing tokens in response');

@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { jwtDecode } from "jwt-decode";
-import { useLocation, useNavigate } from "@tanstack/react-router";
+import { useMatches, useNavigate } from "@tanstack/react-router";
 import type { PropsWithChildren} from "react";
 
 type AuthProviderProps = {
@@ -14,22 +14,19 @@ const AuthContext = createContext<AuthProviderProps>({
 
 const AuthProvider = ({ children }: PropsWithChildren) => {
 
-    const location = useLocation();
+    const matches = useMatches();
     const navigate = useNavigate();
 
     const [authToken, setAuthToken] = useState<string | null>(window.localStorage.getItem("authToken"));
     const [remainingAccessTimeMs, setRemainingAccessTimeMs] = useState<number | null>(null);
 
-    const isAuthRoute = location.pathname === '/' || 
-                    location.pathname.startsWith('/login') || 
-                    location.pathname.startsWith('/register');
+    const currentRoute = matches[matches.length - 1];
+    const routeData = currentRoute.staticData as {requireAuth: boolean, requireRole: string};
 
-    const isAppRoute = !isAuthRoute;
-
-    useEffect(() => {
+    useEffect(() => { 
         try {
             if(!authToken) {
-                if (isAppRoute) {
+                if (routeData.requireAuth) {
                     navigate({ to: '/', replace: true });
                 }
                 return;           
@@ -53,15 +50,13 @@ const AuthProvider = ({ children }: PropsWithChildren) => {
             const timeoutId = setTimeout(() => {
                 clearAuthToken();
             }, remainingTime);
-
-            navigate({ to: '/home', replace: true });
         
             return () => clearTimeout(timeoutId);
 
         } catch(e) {
             console.log('error', e);
         }
-    }, [authToken, isAppRoute]);
+    }, [authToken, currentRoute.index]);
 
     useEffect(() => {
         const handleStorageChange = (e: StorageEvent) => {
@@ -80,7 +75,7 @@ const AuthProvider = ({ children }: PropsWithChildren) => {
         setAuthToken(null);
         setRemainingAccessTimeMs(null);
 
-        if(isAppRoute) {
+        if(routeData.requireAuth) {
             navigate({ to: '/' });
         }
         // const newAccessToken = await fetch(`${import.meta.env.VITE_API_URL}/refresh-access-token`, {

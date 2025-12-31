@@ -31,7 +31,11 @@ const indexRoute = createRoute({
 const homeRoute = createRoute({
     getParentRoute: () => appLayoutRoute,
     path: '/home',
-    component: Home 
+    component: Home,
+    staticData: {
+        requireAuth: true,
+        requireRole: 'authenticated'
+    }
 })
 
 export const routeTree = rootRoute.addChildren([
