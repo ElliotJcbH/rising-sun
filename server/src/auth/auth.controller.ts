@@ -1,8 +1,9 @@
-import { Controller, Post, Body, Res, UnauthorizedException, Req } from "@nestjs/common";
+import { Controller, Post, Body, Res, UnauthorizedException, Req, Get } from "@nestjs/common";
 import { CreateUserForm } from "./dto/create-user-form.dto";
 import { SignInUserForm } from "./dto/signin-user-form.dto";
 import { AuthService } from "./auth.service";
 import type { Response, Request } from "express";
+import { SessionInfoDto } from "./dto/session-info.dto";
 
 @Controller('') 
 export class AuthController {
@@ -14,27 +15,26 @@ export class AuthController {
     @Post('create')
     async createAccount(@Body() formData: CreateUserForm, @Res({passthrough: true}) res: Response) {
         
-        const { refreshToken, accessToken } = await this.authService.createAccount(formData);
+        const sessionInfo = await this.authService.createAccount(formData);
 
-        res.json({
-            refreshToken,
-            accessToken
-        })
+        res.json(sessionInfo)
     }
 
     @Post('signin')
     async verifySignIn(@Body() formData: SignInUserForm, @Res({passthrough: true}) res: Response) {
 
-        const { refreshToken, accessToken } = await this.authService.verifySignIn(formData);
+        const sessionInfo = await this.authService.verifySignIn(formData);
 
-        if(!refreshToken || !accessToken) {
-            throw new UnauthorizedException('Invalid Tokens'); // probably not the best?
-        }
+        res.json(sessionInfo)
+    }
 
-        res.json({
-            refreshToken,
-            accessToken
-        })
+    @Get('verify-session')
+    async verifySession(@Body() sessionInfo: SessionInfoDto, @Res({passthrough: true}) res: Response) {
+
+        const newSessionInfo = await this.authService.verifySession(sessionInfo);
+
+        res.json(newSessionInfo)
+
     }
 
 }

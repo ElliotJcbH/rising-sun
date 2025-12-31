@@ -4,7 +4,7 @@ import { AppService } from './app.service';
 import { AboutController } from './about.controller';
 import { AuthController } from './auth/auth.controller';
 import { AuthService } from './auth/auth.service';
-import { DatabaseService } from './database/database.service';
+import { DatabaseService } from './common/providers/database/database.service';
 import { AuthModule } from './auth/auth.module';
 import { ConfigModule } from '@nestjs/config';
 
@@ -17,7 +17,6 @@ import { ConfigModule } from '@nestjs/config';
     }),
   ],
   controllers: [AppController], // AboutController is a Test Controller
-  providers: [AppService, DatabaseService],
-  exports: [DatabaseService]
+  providers: [AppService],
 })
 export class AppModule {}
