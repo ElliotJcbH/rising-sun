@@ -33,10 +33,20 @@ export class AuthController {
         return sessionInfo;
     }
 
-    @Delete('logout')
-    async logout(@Body() logoutBody: { userId: string }) {
+    // @Delete('logout')
+    // async logout(@Body() logoutBody: { userId: string }) {
 
-        const isRefreshTokenDeleted = await this.tokenService.deleteRefreshToken(logoutBody.userId);
+    //     const isRefreshTokenDeleted = await this.tokenService.deleteRefreshToken(logoutBody.userId);
+
+    //     return {
+    //         isRefreshTokenDeleted: isRefreshTokenDeleted
+    //     }
+    // }
+
+    @Delete('logout')
+    async logout(@Headers('authorization') authorization: string) {
+
+        const isRefreshTokenDeleted = await this.tokenService.deleteRefreshToken(authorization);
 
         return {
             isRefreshTokenDeleted: isRefreshTokenDeleted
