@@ -5,7 +5,7 @@ import DecodedJwtPayload from "src/common/interface/decoded-jwt-payload.interfac
 import { DatabaseService } from "src/database/database.service";
 
 const REFRESH_TOKEN_EXPIRATION = '30d';
-const ACCESS_TOKEN_EXPIRATION = '1h';
+const ACCESS_TOKEN_EXPIRATION = '1m';
 
 @Injectable()
 export class TokenService {
