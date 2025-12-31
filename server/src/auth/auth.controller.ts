@@ -1,54 +1,67 @@
-import { Controller, Post, Body, Res, UnauthorizedException, Req, Get } from "@nestjs/common";
+import { Controller, Post, Body, Res, UnauthorizedException, Req, Get, Headers, Delete } from "@nestjs/common";
 import { CreateUserForm } from "./dto/create-user-form.dto";
 import { SignInUserForm } from "./dto/signin-user-form.dto";
 import { AuthService } from "./auth.service";
 import type { Response, Request } from "express";
-import { SessionInfoDto } from "./dto/session-info.dto";
+import { TokenService } from "src/common/providers/token/token.service";
 
-@Controller('') 
+@Controller('auth') 
 export class AuthController {
 
     constructor(
         private readonly authService: AuthService,
+        private readonly tokenService: TokenService,
     ) {}
 
-    @Post('create')
-    async createAccount(@Body() formData: CreateUserForm, @Res({passthrough: true}) res: Response) {
+    @Post('register')
+    async register(@Body() formData: CreateUserForm) {
         
-        const sessionInfo = await this.authService.createAccount(formData);
+        const user = await this.authService.register(formData);
 
-        res.json(sessionInfo)
+        const sessionInfo = await this.tokenService.createTokens(user);
+        
+        return sessionInfo; 
     }
 
-    @Post('signin')
-    async verifySignIn(@Body() formData: SignInUserForm, @Res({passthrough: true}) res: Response) {
+    @Post('login')
+    async login(@Body() formData: SignInUserForm) {
 
-        const sessionInfo = await this.authService.verifySignIn(formData);
+        const user = await this.authService.login(formData);
 
-        res.json(sessionInfo)
+        const sessionInfo = await this.tokenService.createTokens(user);
+        
+        return sessionInfo;
     }
 
-    @Get('verify-session')
-    async verifySession(@Body() sessionInfo: SessionInfoDto, @Res({passthrough: true}) res: Response) {
+    @Delete('logout')
+    async logout(@Body() logoutBody: { userId: string }) {
 
-        const newSessionInfo = await this.authService.verifySession(sessionInfo);
+        const isRefreshTokenDeleted = await this.tokenService.deleteRefreshToken(logoutBody.userId);
 
-        res.json(newSessionInfo)
+        return {
+            isRefreshTokenDeleted: isRefreshTokenDeleted
+        }
+    }
 
+    @Get('verify')
+    async verify(@Headers('authorization') authorization: string) {
+        console.log('verifying');
+
+        if (!authorization) {
+            throw new UnauthorizedException('No authorization header');
+        }
+
+        const accessToken = authorization.split(' ')[1];
+
+        if (!accessToken) {
+            return { accessToken: null };
+        }
+
+        const newAccessToken = await this.tokenService.verifyToken(accessToken);
+
+        return {
+            accessToken: newAccessToken
+        };
     }
 
 }
-
-// res.cookie('accessToken', accessToken, {
-//     httpOnly: true,
-//     // secure: true, unset or set to false for dev
-//     // sameSite: 'strict'
-//     maxAge: 60 * 60 * 1000
-// })
-
-// res.cookie('refreshToken', refreshToken, {
-//     httpOnly: true,
-//     // secure: true, unset or set to false for dev
-//     // sameSite: 'strict'
-//     maxAge: 30 * 24 * 60 * 60 * 1000
-// })

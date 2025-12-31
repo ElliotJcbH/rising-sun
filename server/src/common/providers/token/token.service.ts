@@ -46,7 +46,7 @@ export class TokenService {
         return refreshToken;
     }
     
-    async createAccessToken(data: Record<string, any>) {
+    createAccessToken(data: Record<string, any>) {
         const accessToken = jwt.sign(
             {
                 user_id: data.user_id,
@@ -62,43 +62,55 @@ export class TokenService {
         return accessToken;
     }
 
-    async verifyToken(accessToken: string, userId: string) {
+    async verifyToken(accessToken: string): Promise<string | null> {
+        
+        const userId = this.parseToken(accessToken).user_id;
 
-        const validAccessPayload = await this.verifyAccessToken(accessToken, userId);
-        if(validAccessPayload) return validAccessPayload;
+        const validAccessPayload = await this.verifyAccessToken(accessToken);
+        if(validAccessPayload) return accessToken;
         
         const validRefreshPayload = await this.verifyRefreshToken(userId);
         if(validRefreshPayload) {
-            return await this.createAccessToken(validRefreshPayload);
+            return this.createAccessToken(validRefreshPayload); // this returns an access token
         }
 
         return null; // user has to re-do authorization steps
     }
 
-    private async verifyAccessToken(accessToken: string, userId: string) {
+    private async verifyAccessToken(accessToken: string) {
 
-        const payload = jwt.verify(
-            accessToken, 
-            this.configService.get<string>('JWT_SECRET'),
-        );    
+        try {
+            const payload = jwt.verify(
+                accessToken, 
+                this.configService.get<string>('JWT_SECRET'),
+            );    
 
-        if(payload) return payload;
+            return payload;
+        } catch (error) {
+            return null;
+        }
 
     }
 
     private async verifyRefreshToken(userId: string) {
+        try {
+            const query = 'SELECT * FROM auth.refresh_tokens WHERE user_id = $1';
+            const result = await this.db.query(query, [userId]);
+            
+            if (!result.rows.length) {
+                return null; 
+            }
+            
+            const refreshToken = result.rows[0].token_id;
+            const payload = jwt.verify(
+                refreshToken,
+                this.configService.get<string>('JWT_SECRET'),
+            );
 
-        const query = 'SELECT * FORM auth.refresh_tokens WHERE user_id = $1';
-        const result = await this.db.query(query, [userId]);
-        
-        const refreshToken = result.rows[0].token_id;
-        const payload = jwt.verify(
-            refreshToken,
-            this.configService.get<string>('JWT_SECRET'),
-        )
-
-        if(payload) return payload;
-       
+            return payload;
+        } catch (error) {
+            return null;
+        }
     }
 
     private async saveRefreshToken(userId: string, refreshToken: string): Promise<boolean> {
@@ -108,6 +120,19 @@ export class TokenService {
         if(await this.db.query(query, [refreshToken, userId])[0]) return true;
 
         return false;
+    }
+
+    async deleteRefreshToken(userId: string): Promise<boolean> {
+
+        const query = 'DELETE FROM auth.refresh_tokens WHERE user_id = $1';
+
+        const result = await this.db.query(query, [userId]);
+        if((result.rowCount || 0) > 0) {
+            return true;
+        }
+
+        return false;
+
     }
 
     private sessionBuilder(accessToken: string, refreshToken: string, user: SessionUserInfo) {
@@ -122,7 +147,7 @@ export class TokenService {
         }
     }
 
-    private parseToken(token: string): SessionUserInfo & { exp: number, iat: number } {
+    parseToken(token: string): SessionUserInfo & { exp: number, iat: number } {
         const decoded = jwt.decode(token);
 
         if (!decoded || typeof decoded === 'string') {

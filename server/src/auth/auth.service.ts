@@ -4,43 +4,51 @@ import { SignInUserForm } from './dto/signin-user-form.dto';
 import { hashPassword, verifyPassword } from 'src/utils/auth.utils';
 import { TokenService } from 'src/common/providers/token/token.service';
 import { DatabaseService } from 'src/common/providers/database/database.service';
-import { SessionInfoDto } from './dto/session-info.dto';
 
+type User = {
+  user_id: string,
+  username: string,
+  email: string,
+  email_verified_at: Date,
+  metadata: Record<string, any>,
+  created_at: Date,
+}
 
 @Injectable()
 export class AuthService {
 
   constructor(
+    private readonly db: DatabaseService,
     private readonly tokenService: TokenService,
-    private readonly db: DatabaseService
   ) {}
   
-  async createAccount(formData: CreateUserForm): Promise<SessionInfoDto> {
+  async register(formData: CreateUserForm): Promise<User> {
 
     const hash = hashPassword(formData.password);
 
     const query = 'INSERT INTO users(username, email, password) VALUES($1, $2, $3) RETURNING user_id, username, email, email_verified_at, metadata, created_at';
     const result = await this.db.query(query, [formData.username, formData.email, hash]);
     
-    const user = result.rows[0];
+    const user = result.rows[0] as User;
     if(!user) {
       throw new InternalServerErrorException('Failed to create new user');
     }
 
-    return this.tokenService.createTokens(user);
+    return(user);
+    // return this.tokenService.createTokens(user);
 
   }
 
-  async verifySignIn(formData: SignInUserForm): Promise<SessionInfoDto> {
+  async login(formData: SignInUserForm): Promise<User> {
 
       if(!formData.email || !formData.password) {
         throw new BadRequestException('Invalid username or password.');
       }
 
-      const query = 'SELECT user_id, username, email, email_verified_at, metadata, created_at FROM users WHERE email = $1';
+      const query = 'SELECT user_id, username, password, email, email_verified_at, metadata, created_at FROM users WHERE email = $1';
       const result = await this.db.query(query, [formData.email]);
 
-      const user = result.rows[0];
+      const user = result.rows[0] as User & { password: string };
       if(!user.username) {
         throw new NotFoundException('User does not exist');
       }
@@ -49,16 +57,21 @@ export class AuthService {
         throw new UnauthorizedException('Invalid credentials');
       }
 
-      return this.tokenService.createTokens(result);
+      const { password, ...userWithoutPassword } = user;
+      return userWithoutPassword;
+      // return this.tokenService.createTokens(result);
 
   }
 
-  async verifySession(sessionInfo: SessionInfoDto): Promise<SessionInfoDto> {
+  // async authenticate(authorization: string): Promise<string | null> {
+  //   const accessToken = authorization.split(' ')[1];
+  
+  //   if (!accessToken) {
+  //     throw new UnauthorizedException('No token provided');
+  //   }
 
-    const newSessionInfo = this.tokenService.verifyToken(sessionInfo.accessToken, sessionInfo.user.user_id);
+  //   return this.tokenService.verifyToken(accessToken); // returns new access token or null
 
-    return newSessionInfo;
-
-  }
+  // }
 
 }
