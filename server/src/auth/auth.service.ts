@@ -2,8 +2,9 @@ import { BadRequestException, Injectable, InternalServerErrorException, NotFound
 import { CreateUserForm } from './dto/create-user-form.dto';
 import { SignInUserForm } from './dto/signin-user-form.dto';
 import { hashPassword, verifyPassword } from 'src/utils/auth.utils';
-import { TokenService } from 'src/token/token.service';
-import { DatabaseService } from 'src/database/database.service';
+import { TokenService } from 'src/common/providers/token/token.service';
+import { DatabaseService } from 'src/common/providers/database/database.service';
+import { SessionInfoDto } from './dto/session-info.dto';
 
 
 @Injectable()
@@ -14,11 +15,11 @@ export class AuthService {
     private readonly db: DatabaseService
   ) {}
   
-  async createAccount(formData: CreateUserForm): Promise<{refreshToken: string, accessToken: string}> {
+  async createAccount(formData: CreateUserForm): Promise<SessionInfoDto> {
 
     const hash = hashPassword(formData.password);
 
-    const query = 'INSERT INTO users(username, email, password) VALUES($1, $2, $3) RETURNING *';
+    const query = 'INSERT INTO users(username, email, password) VALUES($1, $2, $3) RETURNING user_id, username, email, email_verified_at, metadata, created_at';
     const result = await this.db.query(query, [formData.username, formData.email, hash]);
     
     const user = result.rows[0];
@@ -30,13 +31,13 @@ export class AuthService {
 
   }
 
-  async verifySignIn(formData: SignInUserForm): Promise<{refreshToken: string, accessToken: string }> {
+  async verifySignIn(formData: SignInUserForm): Promise<SessionInfoDto> {
 
       if(!formData.email || !formData.password) {
         throw new BadRequestException('Invalid username or password.');
       }
 
-      const query = 'SELECT * FROM users WHERE email = $1';
+      const query = 'SELECT user_id, username, email, email_verified_at, metadata, created_at FROM users WHERE email = $1';
       const result = await this.db.query(query, [formData.email]);
 
       const user = result.rows[0];
@@ -49,6 +50,14 @@ export class AuthService {
       }
 
       return this.tokenService.createTokens(result);
+
+  }
+
+  async verifySession(sessionInfo: SessionInfoDto): Promise<SessionInfoDto> {
+
+    const newSessionInfo = this.tokenService.verifyToken(sessionInfo.accessToken, sessionInfo.user.user_id);
+
+    return newSessionInfo;
 
   }
 

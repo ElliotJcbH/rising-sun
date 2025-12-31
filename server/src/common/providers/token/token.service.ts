@@ -1,11 +1,12 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import * as jwt from 'jsonwebtoken';
-import DecodedJwtPayload from "src/common/interface/decoded-jwt-payload.interface";
-import { DatabaseService } from "src/database/database.service";
+import { SessionInfoDto } from "src/auth/dto/session-info.dto";
+import SessionUserInfo from "src/common/interface/session-user-info.interface";
+import { DatabaseService } from "src/common/providers/database/database.service";
 
 const REFRESH_TOKEN_EXPIRATION = '30d';
-const ACCESS_TOKEN_EXPIRATION = '1m';
+const ACCESS_TOKEN_EXPIRATION = '15m';
 
 @Injectable()
 export class TokenService {
@@ -15,16 +16,16 @@ export class TokenService {
         private configService: ConfigService
       ) {}
 
-    async createTokens(data: Record<string, any>): Promise<{accessToken: string, refreshToken: string, user_data: Record<string, any>}> {
+    async createTokens(data: Record<string, any>): Promise<SessionInfoDto> {
 
         const refreshToken = await this.createRefreshToken(data);
         const accessToken = await this.createAccessToken(data);
     
-        return { 
-            accessToken, 
+        return this.sessionBuilder(
+            accessToken,
             refreshToken,
-            user_data: data, 
-        };
+            data as SessionUserInfo
+        )
     }
 
     async createRefreshToken(data: Record<string, any>) {
@@ -74,7 +75,18 @@ export class TokenService {
         return null; // user has to re-do authorization steps
     }
 
-    async verifyRefreshToken(userId: string) {
+    private async verifyAccessToken(accessToken: string, userId: string) {
+
+        const payload = jwt.verify(
+            accessToken, 
+            this.configService.get<string>('JWT_SECRET'),
+        );    
+
+        if(payload) return payload;
+
+    }
+
+    private async verifyRefreshToken(userId: string) {
 
         const query = 'SELECT * FORM auth.refresh_tokens WHERE user_id = $1';
         const result = await this.db.query(query, [userId]);
@@ -89,28 +101,35 @@ export class TokenService {
        
     }
 
-    async verifyAccessToken(accessToken: string, userId: string) {
-
-        const payload = jwt.verify(
-            accessToken, 
-            this.configService.get<string>('JWT_SECRET'),
-        );    
-
-        if(payload) return payload;
-
-    }
-
-    parseToken(token: string): DecodedJwtPayload {
-        return jwt.decode(token);
-    }
-
-    async saveRefreshToken(userId: string, refreshToken: string): Promise<boolean> {
+    private async saveRefreshToken(userId: string, refreshToken: string): Promise<boolean> {
         
         const query = 'INSERT INTO auth.refresh_tokens(token_id, user_id) VALUES($1, $2) RETURNING token_id';
 
         if(await this.db.query(query, [refreshToken, userId])[0]) return true;
 
         return false;
+    }
+
+    private sessionBuilder(accessToken: string, refreshToken: string, user: SessionUserInfo) {
+        const { exp, iat } = this.parseToken(accessToken);
+
+        return {
+            accessToken,
+            refreshToken,
+            exp,
+            iat,
+            user
+        }
+    }
+
+    private parseToken(token: string): SessionUserInfo & { exp: number, iat: number } {
+        const decoded = jwt.decode(token);
+
+        if (!decoded || typeof decoded === 'string') {
+            throw new UnauthorizedException('Invalid token format');
+        }
+
+        return decoded as SessionUserInfo & { exp: number, iat: number };
     }
 
 }
