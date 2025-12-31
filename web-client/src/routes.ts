@@ -12,14 +12,13 @@ const rootRoute = createRootRoute({
 const appLayoutRoute = createRoute({
     getParentRoute: () => rootRoute,
     id: '_app',
-    component: AppLayout
+    component: AppLayout,
 })
 
 const authLayoutRoute = createRoute({
     getParentRoute: () => rootRoute,
     id: '_auth',
     component: AuthLayout,
-    
 })
 
 const indexRoute = createRoute({

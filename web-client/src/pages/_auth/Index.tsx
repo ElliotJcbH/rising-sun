@@ -21,7 +21,7 @@ const Index = () => {
             throw new Error('Passwords do not match');
         }
 
-        const res = await fetch(`${import.meta.env.VITE_API_URL}/create`, {
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/auth/register`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -36,15 +36,9 @@ const Index = () => {
         if(!res.ok) throw new Error(`Account creation failed: ${res.status}`);
 
         const body = await res.json();
-        localStorage.setItem('authToken', JSON.stringify(body));
+        localStorage.setItem('sessionInfo', JSON.stringify(body));
 
-        setTimeout(() => {
-            navigate({ to: '/home' });
-        }, 500);
-        
-        // if(!body.accessToken || !body.refreshToken) {
-        //     throw new Error('Missing tokens in response');
-        // }
+        navigate({ to: '/home' });
     } 
 
     return (
