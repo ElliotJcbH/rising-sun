@@ -1,11 +1,12 @@
 import React from "react";
 import '@/styles/Index.css';
+import { useNavigate } from "@tanstack/react-router";
 
 const Index = () => {
 
     const createAccount = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-
+        
         const formData = new FormData(e.currentTarget);
         const data = {
             email: formData.get('email') as string,
@@ -34,8 +35,6 @@ const Index = () => {
 
         const body = await res.json();
         localStorage.setItem('authToken', JSON.stringify(body));
-
-        alert('Account Created');
         
         // if(!body.accessToken || !body.refreshToken) {
         //     throw new Error('Missing tokens in response');
