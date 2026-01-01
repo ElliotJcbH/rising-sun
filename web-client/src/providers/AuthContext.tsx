@@ -6,12 +6,14 @@ import type { JwtPayload } from "jwt-decode";
 
 type AuthProviderProps = {
     session: Record<string, any> | null;
-    clearSession: (() => void) | null;
+    verifySession: (accessToken: string) => any;
+    logout: (() => void);
 }
 
 const AuthContext = createContext<AuthProviderProps>({
     session: null,
-    clearSession: null
+    verifySession: () => {}, // gives option to verify session manually, especially for critical tasks
+    logout: () => { return null },
 })
 
 
@@ -21,15 +23,24 @@ const AuthProvider = ({ children }: PropsWithChildren) => {
     const matches = useMatches();
     const navigate = useNavigate();
 
-    const [session, setSession] = useState<Record<string, any> | null>(null);
+    const [globalSession, setGlobalSession] = useState(getCurrentSession());
     const [lastCheckedAccessToken, setLastCheckedAccessToken] = useState<string | null>(null);
     const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const abortControllerRef = useRef<AbortController | null>(null);
 
     const currentRoute = matches[matches.length - 1];
     const routeData = currentRoute.staticData as {requireAuth: boolean, requireRole: string};
 
     useEffect(() => { 
         startAuth();
+
+        return () => {
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
+                abortControllerRef.current = null;
+            }
+            if(refreshTimeoutRef.current) clearTimeout(refreshTimeoutRef.current);
+        }
     }, [currentRoute.id]);
 
     useEffect(() => {
@@ -47,7 +58,6 @@ const AuthProvider = ({ children }: PropsWithChildren) => {
     async function startAuth() {
         try {
             const currentSession = getCurrentSession();
-            setSession(currentSession);
 
             if(!currentSession) {
                 if (routeData.requireAuth) {
@@ -72,25 +82,7 @@ const AuthProvider = ({ children }: PropsWithChildren) => {
         }
     };
 
-    async function verifySession(accessToken: string) { // the api will automatically send a new access token if the refresh token is invalid
-
-        let res: Response | null = null;
-        try {
-            res = await fetch(`${import.meta.env.VITE_API_URL}/auth/verify`, {
-                method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${accessToken}`
-                },
-            });
-        } catch(e) {
-            console.log('failed to fetch', e);
-        }
-        if(!res || !res.ok) {
-            alert('Failed to verify token');
-            clearSession();
-            return;
-        }
-        const payload = await res.json(); // TODO: create type for this
+    function handleNewToken(payload: any) {
         const newAccessToken = payload.accessToken;     
 
         let decodedToken: JwtPayload;
@@ -116,9 +108,10 @@ const AuthProvider = ({ children }: PropsWithChildren) => {
             iat: newIat
         }
         localStorage.setItem('sessionInfo', JSON.stringify(newSession));
-        setSession(newSession);
+        setGlobalSession(newSession);
 
         const remainingTime = (decodedToken.exp * 1000) - Date.now();
+
         refreshTimeoutRef.current = setTimeout(() => {
             verifySession(newAccessToken);
         }, remainingTime);
@@ -135,7 +128,7 @@ const AuthProvider = ({ children }: PropsWithChildren) => {
 
     function clearSession() {
         window.localStorage.removeItem("sessionInfo");
-        setSession(null);
+        setGlobalSession(null);
         setLastCheckedAccessToken(null);
 
         if(routeData.requireAuth) {
@@ -143,11 +136,75 @@ const AuthProvider = ({ children }: PropsWithChildren) => {
         }
     }
 
+    async function verifySession(accessToken: string) { // the api will automatically send a new access token if the refresh token is invalid
+
+        if (!abortControllerRef.current) {
+            const controller = new AbortController();
+            abortControllerRef.current = controller;
+        }
+
+        let res: Response | null = null;
+        try {
+            res = await fetch(`${import.meta.env.VITE_API_URL}/auth/verify`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`
+                },
+                signal: abortControllerRef.current.signal
+            });
+        } catch(e: unknown) {
+            if(e instanceof Error && e.name === 'AbortError') {
+                console.log('Fetch aborted');
+                return;
+            } 
+            console.log('failed to fetch', e);
+            clearSession();
+        }
+
+        console.log('res', res);
+        if(!res || !res.ok) {
+            alert('Failed to verify token');
+            clearSession();
+            return;
+        }
+        const payload = await res.json(); // TODO: create type for this
+
+        handleNewToken(payload)
+    }
+
+    async function logout() {
+
+        const session = getCurrentSession();
+        
+        if(!session || !session.accessToken) return;
+
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/auth/logout`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${session.accessToken}` 
+            },        
+        })
+
+        if(!res.ok) {
+            alert('Failed to logout');
+            return;
+        }
+
+        const { isRefreshTokenDeleted } = await res.json();
+        if(isRefreshTokenDeleted == 'false') {
+            alert('Returned false');
+            return;
+        }
+
+        clearSession();
+    }
+
     return (
         <AuthContext.Provider
             value={{
-                session,
-                clearSession
+                session: globalSession,
+                verifySession,
+                logout
             }}
         >
             {children}
