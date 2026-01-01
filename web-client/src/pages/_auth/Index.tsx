@@ -62,6 +62,7 @@ const Index = () => {
                 </label>
                 <button type='submit'>Create Account</button>
             </form>
+            <button>Login</button>
         </div>
     )
 
