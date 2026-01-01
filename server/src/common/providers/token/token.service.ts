@@ -122,17 +122,24 @@ export class TokenService {
         return false;
     }
 
-    async deleteRefreshToken(userId: string): Promise<boolean> {
+    async deleteRefreshToken(accessToken: string): Promise<boolean> {
+
+        const payload: SessionInfoDto = jwt.verify(
+            accessToken,
+            this.configService.get<string>('JWT_SECRET'),
+            {
+                ignoreExpiration: true
+            }
+        );
+        const userId = payload.user.user_id;
 
         const query = 'DELETE FROM auth.refresh_tokens WHERE user_id = $1';
-
         const result = await this.db.query(query, [userId]);
         if((result.rowCount || 0) > 0) {
             return true;
         }
 
         return false;
-
     }
 
     private sessionBuilder(accessToken: string, refreshToken: string, user: SessionUserInfo) {
