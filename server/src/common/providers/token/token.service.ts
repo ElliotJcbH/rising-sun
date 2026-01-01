@@ -6,7 +6,7 @@ import SessionUserInfo from "src/common/interface/session-user-info.interface";
 import { DatabaseService } from "src/common/providers/database/database.service";
 
 const REFRESH_TOKEN_EXPIRATION = '30d';
-const ACCESS_TOKEN_EXPIRATION = '15m';
+const ACCESS_TOKEN_EXPIRATION = '10s';
 
 @Injectable()
 export class TokenService {
@@ -124,14 +124,15 @@ export class TokenService {
 
     async deleteRefreshToken(accessToken: string): Promise<boolean> {
 
-        const payload: SessionInfoDto = jwt.verify(
+        const payload = jwt.verify(
             accessToken,
             this.configService.get<string>('JWT_SECRET'),
             {
                 ignoreExpiration: true
             }
         );
-        const userId = payload.user.user_id;
+        console.log('Payload', payload);
+        const userId = payload.user_id;
 
         const query = 'DELETE FROM auth.refresh_tokens WHERE user_id = $1';
         const result = await this.db.query(query, [userId]);

@@ -45,7 +45,16 @@ export class AuthController {
     @Delete('logout')
     async logout(@Headers('authorization') authorization: string) {
 
-        const isRefreshTokenDeleted = await this.tokenService.deleteRefreshToken(authorization);
+        if (!authorization) {
+            throw new UnauthorizedException('No authorization header');
+        }
+
+        const accessToken = authorization.split(' ')[1];
+
+        if (!accessToken) {
+            return { accessToken: null };
+        }        
+        const isRefreshTokenDeleted = await this.tokenService.deleteRefreshToken(accessToken);
 
         return {
             isRefreshTokenDeleted: isRefreshTokenDeleted
@@ -54,7 +63,6 @@ export class AuthController {
 
     @Get('verify')
     async verify(@Headers('authorization') authorization: string) {
-        console.log('verifying');
 
         if (!authorization) {
             throw new UnauthorizedException('No authorization header');
