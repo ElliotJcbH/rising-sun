@@ -62,16 +62,5 @@ export class AuthService {
       // return this.tokenService.createTokens(result);
 
   }
-
-  // async authenticate(authorization: string): Promise<string | null> {
-  //   const accessToken = authorization.split(' ')[1];
   
-  //   if (!accessToken) {
-  //     throw new UnauthorizedException('No token provided');
-  //   }
-
-  //   return this.tokenService.verifyToken(accessToken); // returns new access token or null
-
-  // }
-
 }

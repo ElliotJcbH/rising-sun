@@ -131,18 +131,15 @@ export class TokenService {
                 ignoreExpiration: true
             }
         );
-
         const userId = payload.user.user_id;
 
         const query = 'DELETE FROM auth.refresh_tokens WHERE user_id = $1';
-
         const result = await this.db.query(query, [userId]);
         if((result.rowCount || 0) > 0) {
             return true;
         }
 
         return false;
-
     }
 
     private sessionBuilder(accessToken: string, refreshToken: string, user: SessionUserInfo) {
