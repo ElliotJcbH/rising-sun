@@ -45,7 +45,6 @@ export class AuthController {
 
     @Get('verify')
     async verify(@Headers('authorization') authorization: string) {
-        console.log('verifying');
 
         if (!authorization) {
             throw new UnauthorizedException('No authorization header');
